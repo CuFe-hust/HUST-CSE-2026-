@@ -1,0 +1,1730 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetFlow · 网络流量分析平台</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f0f4ff;
+    --surface: #ffffff;
+    --surface2: #e8eeff;
+    --blue-deep: #1a3fa8;
+    --blue-mid: #2563eb;
+    --blue-light: #60a5fa;
+    --blue-pale: #dbeafe;
+    --accent: #0ea5e9;
+    --text-primary: #0f1d3d;
+    --text-secondary: #4b6393;
+    --text-muted: #94aac8;
+    --border: #d1ddf7;
+    --shadow: 0 4px 30px rgba(37, 99, 235, 0.08);
+    --shadow-md: 0 8px 40px rgba(37, 99, 235, 0.14);
+    --radius: 16px;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+  }
+
+  /* ─── SPLASH SCREEN ─────────────────────────────── */
+  #splash {
+    position: fixed; inset: 0; z-index: 1000;
+    background: linear-gradient(135deg, #0a1628 0%, #0f2567 50%, #0a1628 100%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    transition: opacity 0.8s cubic-bezier(0.4,0,0.2,1), transform 0.8s cubic-bezier(0.4,0,0.2,1);
+  }
+  #splash.fade-out {
+    opacity: 0; transform: scale(1.04); pointer-events: none;
+  }
+
+  .splash-logo {
+    position: relative;
+    margin-bottom: 48px;
+  }
+  .splash-rings {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .splash-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(96, 165, 250, 0.15);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    animation: ring-pulse 3s ease-in-out infinite;
+  }
+  .splash-ring:nth-child(1) { width: 120px; height: 120px; animation-delay: 0s; }
+  .splash-ring:nth-child(2) { width: 180px; height: 180px; animation-delay: 0.4s; border-color: rgba(96, 165, 250, 0.10); }
+  .splash-ring:nth-child(3) { width: 240px; height: 240px; animation-delay: 0.8s; border-color: rgba(96, 165, 250, 0.06); }
+  @keyframes ring-pulse {
+    0%, 100% { opacity: 0.4; transform: translate(-50%,-50%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%,-50%) scale(1.05); }
+  }
+
+  .splash-icon {
+    width: 72px; height: 72px;
+    background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; z-index: 1;
+    box-shadow: 0 0 40px rgba(14, 165, 233, 0.4), 0 0 80px rgba(29, 78, 216, 0.2);
+    animation: icon-float 4s ease-in-out infinite;
+  }
+  @keyframes icon-float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-6px); }
+  }
+  .splash-icon svg { width: 36px; height: 36px; }
+
+  .splash-wordmark {
+    font-family: 'Syne', sans-serif;
+    font-size: 38px; font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+    opacity: 0;
+    animation: word-appear 0.8s cubic-bezier(0.2,0,0,1) 0.3s forwards;
+  }
+  .splash-wordmark span { color: #60a5fa; }
+  .splash-tagline {
+    font-size: 13px; font-weight: 400;
+    color: rgba(255,255,255,0.45);
+    letter-spacing: 3px; text-transform: uppercase;
+    opacity: 0;
+    animation: word-appear 0.8s cubic-bezier(0.2,0,0,1) 0.5s forwards;
+  }
+  @keyframes word-appear {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .splash-progress-wrap {
+    margin-top: 60px;
+    width: 200px;
+    opacity: 0;
+    animation: word-appear 0.6s ease 0.8s forwards;
+  }
+  .splash-progress-track {
+    height: 2px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .splash-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #2563eb, #0ea5e9);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.1s linear;
+    box-shadow: 0 0 8px rgba(14, 165, 233, 0.6);
+  }
+  .splash-progress-label {
+    margin-top: 10px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+
+  /* ─── FILE PICKER SCREEN ─────────────────────────── */
+  #picker-screen {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+  #picker-screen.visible { opacity: 1; pointer-events: all; }
+  #picker-screen.slide-out {
+    opacity: 0; transform: translateY(-30px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
+  }
+
+  .picker-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 56px 64px;
+    width: 540px;
+    box-shadow: var(--shadow-md);
+    text-align: center;
+    animation: card-in 0.6s cubic-bezier(0.2,0,0,1) both;
+  }
+  @keyframes card-in {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .picker-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--blue-pale);
+    color: var(--blue-mid);
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    padding: 6px 14px; border-radius: 100px;
+    margin-bottom: 28px;
+  }
+  .picker-badge span { width: 6px; height: 6px; background: var(--blue-mid); border-radius: 50%; display: block; }
+
+  .picker-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 30px; font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.15;
+    margin-bottom: 12px;
+  }
+  .picker-title em { color: var(--blue-mid); font-style: normal; }
+
+  .picker-sub {
+    font-size: 14px; color: var(--text-secondary);
+    line-height: 1.6; margin-bottom: 40px;
+  }
+
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 40px 24px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    background: var(--bg);
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--blue-mid);
+    background: var(--blue-pale);
+  }
+  .drop-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .drop-icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+  }
+  .drop-icon svg { width: 24px; height: 24px; color: var(--blue-mid); }
+  .drop-text-main { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+  .drop-text-sub { font-size: 12px; color: var(--text-muted); }
+  .drop-text-sub strong { color: var(--blue-mid); }
+
+  .picker-demo-btn {
+    margin-top: 20px;
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .picker-demo-btn:hover {
+    background: var(--surface2); color: var(--text-primary);
+    border-color: var(--blue-light);
+  }
+
+  .picker-cta {
+    margin-top: 12px;
+    width: 100%;
+    padding: 16px;
+    border-radius: 12px;
+    border: none;
+    background: linear-gradient(135deg, var(--blue-deep), var(--blue-mid));
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    opacity: 0.3; pointer-events: none;
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3);
+  }
+  .picker-cta.ready { opacity: 1; pointer-events: all; }
+  .picker-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4); }
+  .picker-cta:active { transform: translateY(0); }
+
+  .file-selected-name {
+    margin-top: 12px;
+    font-size: 12px; font-family: 'DM Mono', monospace;
+    color: var(--blue-mid); text-align: center;
+    min-height: 18px;
+  }
+
+  /* ─── LOADING SCREEN ─────────────────────────────── */
+  #loading-screen {
+    position: fixed; inset: 0; z-index: 90;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: var(--bg);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+  #loading-screen.visible { opacity: 1; pointer-events: all; }
+  #loading-screen.fade-out { opacity: 0; pointer-events: none; }
+
+  .loading-orb {
+    width: 90px; height: 90px;
+    position: relative;
+    margin-bottom: 40px;
+  }
+  .loading-orb-inner {
+    width: 100%; height: 100%;
+    background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
+    border-radius: 50%;
+    animation: orb-pulse 2s ease-in-out infinite;
+    box-shadow: 0 0 30px rgba(14, 165, 233, 0.4);
+  }
+  @keyframes orb-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 30px rgba(14, 165, 233, 0.4); }
+    50% { transform: scale(1.08); box-shadow: 0 0 60px rgba(14, 165, 233, 0.6); }
+  }
+  .loading-orb-ring {
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-top-color: var(--blue-light);
+    animation: orb-spin 1.2s linear infinite;
+  }
+  .loading-orb-ring2 {
+    position: absolute;
+    inset: -18px;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    border-top-color: rgba(96, 165, 250, 0.4);
+    border-right-color: rgba(96, 165, 250, 0.2);
+    animation: orb-spin 2s linear infinite reverse;
+  }
+  @keyframes orb-spin { to { transform: rotate(360deg); } }
+
+  .loading-steps {
+    width: 320px;
+  }
+  .loading-step {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0;
+    opacity: 0.2;
+    transition: opacity 0.4s ease;
+  }
+  .loading-step.active { opacity: 1; }
+  .loading-step.done { opacity: 0.5; }
+  .step-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    transition: background 0.3s ease;
+  }
+  .loading-step.active .step-dot {
+    background: var(--blue-mid);
+    box-shadow: 0 0 8px rgba(37, 99, 235, 0.5);
+    animation: dot-blink 1s ease-in-out infinite;
+  }
+  .loading-step.done .step-dot { background: #22c55e; }
+  @keyframes dot-blink {
+    0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+  }
+  .step-text {
+    font-size: 13px; font-weight: 500; color: var(--text-primary);
+  }
+  .step-check { margin-left: auto; color: #22c55e; font-size: 13px; }
+
+  /* ─── MAIN APP ───────────────────────────────────── */
+  #app {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.7s ease;
+  }
+  #app.visible { opacity: 1; pointer-events: all; }
+
+  /* ── Header ── */
+  .app-header {
+    height: 62px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 24px;
+    gap: 20px;
+    flex-shrink: 0;
+    box-shadow: 0 1px 12px rgba(37,99,235,0.04);
+    z-index: 10;
+  }
+
+  .header-logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px; font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+    display: flex; align-items: center; gap: 8px;
+    flex-shrink: 0;
+  }
+  .header-logo .logo-dot { color: var(--blue-mid); }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--blue-deep), var(--accent));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon svg { width: 18px; height: 18px; }
+
+  .header-sep {
+    width: 1px; height: 24px;
+    background: var(--border);
+  }
+
+  .header-file-info {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+  }
+  .header-file-info strong { color: var(--text-secondary); font-weight: 500; }
+
+  .header-stats {
+    display: flex; gap: 16px;
+    margin-left: auto;
+  }
+  .hstat {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .hstat-val {
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+  .hstat-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+
+  .header-actions {
+    display: flex; gap: 8px;
+    margin-left: 20px;
+  }
+  .hbtn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px; font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .hbtn:hover { background: var(--surface2); color: var(--text-primary); border-color: var(--blue-light); }
+  .hbtn.active { background: var(--blue-mid); color: #fff; border-color: var(--blue-mid); }
+  .hbtn svg { width: 14px; height: 14px; }
+  .new-file-btn {
+    background: linear-gradient(135deg, var(--blue-deep), var(--blue-mid));
+    color: #fff; border: none;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+  }
+  .new-file-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(37,99,235,0.35); background: linear-gradient(135deg, var(--blue-deep), var(--blue-mid)); color: #fff; border: none; }
+
+  /* ── Body ── */
+  .app-body {
+    flex: 1; display: flex; overflow: hidden; position: relative;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  .sidebar-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 16px 0 8px 4px;
+  }
+  .sidebar-section-title:first-child { margin-top: 4px; }
+
+  .sidebar-btn {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500;
+    cursor: pointer;
+    transition: all 0.18s;
+    text-align: left;
+    position: relative;
+  }
+  .sidebar-btn:hover { background: var(--surface2); color: var(--text-primary); }
+  .sidebar-btn.active {
+    background: var(--blue-pale);
+    color: var(--blue-mid);
+    font-weight: 600;
+  }
+  .sidebar-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .sidebar-btn .sbadge {
+    margin-left: auto;
+    font-size: 10px; font-weight: 700;
+    background: var(--blue-pale); color: var(--blue-mid);
+    padding: 2px 7px; border-radius: 100px;
+  }
+  .sidebar-btn.active .sbadge { background: var(--blue-mid); color: #fff; }
+
+  .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+  /* ── Chart Area ── */
+  .chart-wrap {
+    flex: 1; position: relative; overflow: hidden;
+    background: linear-gradient(135deg, #f0f4ff 0%, #e8eeff 100%);
+  }
+
+  #main-chart { width: 100%; height: 100%; }
+
+  /* ── Analysis Panel ── */
+  .analysis-panel {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 340px;
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-left: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    transform: translateX(340px);
+    transition: transform 0.4s cubic-bezier(0.2,0,0,1);
+    box-shadow: -8px 0 40px rgba(37,99,235,0.10);
+    z-index: 20;
+  }
+  .analysis-panel.open { transform: translateX(0); }
+
+  .panel-header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-size: 14px; font-weight: 700;
+    color: var(--text-primary);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-title svg { width: 16px; height: 16px; color: var(--blue-mid); }
+  .panel-close {
+    width: 28px; height: 28px;
+    border-radius: 6px; border: 1px solid var(--border);
+    background: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .panel-close:hover { background: var(--surface2); color: var(--text-primary); }
+  .panel-close svg { width: 14px; height: 14px; }
+
+  .panel-body {
+    flex: 1; overflow-y: auto;
+    padding: 16px 20px;
+  }
+  .panel-body::-webkit-scrollbar { width: 4px; }
+  .panel-body::-webkit-scrollbar-track { background: transparent; }
+  .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* Analysis Result Blocks */
+  .result-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    animation: result-in 0.4s cubic-bezier(0.2,0,0,1) both;
+  }
+  @keyframes result-in {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .result-card-title {
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.8px; text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .result-card-title svg { width: 12px; height: 12px; }
+
+  .stat-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .label { color: var(--text-secondary); }
+  .stat-row .value { font-family: 'DM Mono', monospace; font-weight: 500; color: var(--text-primary); }
+
+  .rank-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .rank-row:last-child { border-bottom: none; }
+  .rank-num {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--blue-pale);
+    color: var(--blue-mid);
+    font-size: 10px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .rank-num.gold { background: #fef3c7; color: #d97706; }
+  .rank-num.silver { background: #f1f5f9; color: #64748b; }
+  .rank-num.bronze { background: #fef3c7; color: #b45309; }
+  .rank-ip { font-family: 'DM Mono', monospace; flex: 1; color: var(--text-primary); font-size: 11px; }
+  .rank-bar-wrap { width: 60px; height: 4px; background: var(--border); border-radius: 2px; }
+  .rank-bar { height: 100%; background: linear-gradient(90deg, var(--blue-mid), var(--accent)); border-radius: 2px; }
+  .rank-val { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-muted); width: 44px; text-align: right; }
+
+  .anomaly-row {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .anomaly-row:last-child { border-bottom: none; }
+  .anomaly-badge {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
+    padding: 3px 7px; border-radius: 100px;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .anomaly-badge.warn { background: #fef3c7; color: #d97706; }
+  .anomaly-badge.danger { background: #fee2e2; color: #dc2626; }
+  .anomaly-ip { font-family: 'DM Mono', monospace; color: var(--text-primary); }
+  .anomaly-detail { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  .protocol-bar-row {
+    margin-bottom: 10px;
+  }
+  .proto-label-row {
+    display: flex; justify-content: space-between;
+    font-size: 11px; margin-bottom: 4px;
+    color: var(--text-secondary);
+  }
+  .proto-label-row span:last-child { font-family: 'DM Mono', monospace; color: var(--text-primary); }
+  .proto-bar-track {
+    height: 6px; background: var(--border); border-radius: 6px; overflow: hidden;
+  }
+  .proto-bar-fill {
+    height: 100%; border-radius: 6px;
+    transition: width 0.8s cubic-bezier(0.2,0,0,1);
+  }
+
+  .path-input-wrap { margin-bottom: 12px; }
+  .path-input-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; letter-spacing: 0.5px; }
+  .path-input {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px; color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .path-input:focus { border-color: var(--blue-mid); }
+  .path-btn {
+    width: 100%;
+    padding: 11px;
+    border-radius: 10px; border: none;
+    background: linear-gradient(135deg, var(--blue-deep), var(--blue-mid));
+    color: #fff; font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; margin-top: 4px;
+    transition: all 0.2s;
+  }
+  .path-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(37,99,235,0.3); }
+
+  .path-result {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--blue-pale);
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    font-size: 12px;
+  }
+  .path-result-label { color: var(--blue-deep); font-weight: 600; margin-bottom: 8px; }
+  .path-chain {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: var(--blue-deep);
+  }
+  .path-arrow { color: var(--blue-light); }
+  .path-result.error { background: #fee2e2; border-color: #fca5a5; }
+  .path-result.error .path-result-label { color: #dc2626; }
+
+  .empty-state {
+    text-align: center; padding: 32px 16px;
+    color: var(--text-muted);
+    font-size: 13px; line-height: 1.6;
+  }
+  .empty-state svg { width: 40px; height: 40px; margin-bottom: 12px; opacity: 0.3; }
+
+  /* ── Floating Legend ── */
+  .chart-legend {
+    position: absolute;
+    bottom: 24px; left: 24px;
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: var(--shadow);
+  }
+  .legend-title { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+  .legend-item:last-child { margin-bottom: 0; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── Notification Toast ── */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    background: var(--text-primary);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 13px; font-weight: 500;
+    box-shadow: 0 8px 24px rgba(15,29,61,0.3);
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.35s cubic-bezier(0.2,0,0,1);
+    max-width: 320px;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+
+  /* Scrollbar */
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!--  SPLASH SCREEN                                      -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div id="splash">
+  <div class="splash-logo">
+    <div class="splash-rings">
+      <div class="splash-ring"></div>
+      <div class="splash-ring"></div>
+      <div class="splash-ring"></div>
+    </div>
+    <div class="splash-icon">
+      <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="18" cy="8" r="4" fill="white" opacity="0.9"/>
+        <circle cx="8" cy="26" r="4" fill="white" opacity="0.9"/>
+        <circle cx="28" cy="26" r="4" fill="white" opacity="0.9"/>
+        <line x1="18" y1="12" x2="8" y2="22" stroke="white" stroke-width="1.5" opacity="0.5"/>
+        <line x1="18" y1="12" x2="28" y2="22" stroke="white" stroke-width="1.5" opacity="0.5"/>
+        <line x1="12" y1="26" x2="24" y2="26" stroke="white" stroke-width="1.5" opacity="0.5"/>
+        <circle cx="18" cy="18" r="2.5" fill="white" opacity="0.4"/>
+      </svg>
+    </div>
+  </div>
+  <div class="splash-wordmark">Net<span>Flow</span></div>
+  <div class="splash-tagline">Network Traffic Intelligence</div>
+  <div class="splash-progress-wrap">
+    <div class="splash-progress-track">
+      <div class="splash-progress-bar" id="splash-bar"></div>
+    </div>
+    <div class="splash-progress-label" id="splash-label">INITIALIZING...</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!--  FILE PICKER SCREEN                                 -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div id="picker-screen">
+  <div class="picker-card">
+    <div class="picker-badge"><span></span>Network Analyzer</div>
+    <div class="picker-title">导入<em>分析结果</em><br>开始可视化</div>
+    <div class="picker-sub">上传由 C 后端生成的 <strong>graph.json</strong> 文件，或点击下方按钮加载同目录下的示例数据。</div>
+
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" accept=".json" />
+      <div class="drop-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <div class="drop-text-main">拖拽 graph.json 到这里，或点击选择</div>
+      <div class="drop-text-sub">由 C 后端程序生成的 <strong>graph.json</strong> 文件 &nbsp;·&nbsp; 包含完整分析结果</div>
+    </div>
+
+    <div class="file-selected-name" id="file-name-display"></div>
+
+    <button class="picker-demo-btn" id="demo-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      加载同目录 graph.json（后端已运行）
+    </button>
+
+    <button class="picker-cta" id="analyze-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px">
+        <circle cx="11" cy="11" r="8"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      开始分析
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!--  LOADING SCREEN                                     -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div id="loading-screen">
+  <div class="loading-orb">
+    <div class="loading-orb-inner"></div>
+    <div class="loading-orb-ring"></div>
+    <div class="loading-orb-ring2"></div>
+  </div>
+  <div class="loading-steps">
+    <div class="loading-step" id="lstep-0">
+      <div class="step-dot"></div>
+      <div class="step-text">读取 graph.json 文件…</div>
+      <div class="step-check" style="display:none">✓</div>
+    </div>
+    <div class="loading-step" id="lstep-1">
+      <div class="step-dot"></div>
+      <div class="step-text">解析后端分析结果…</div>
+      <div class="step-check" style="display:none">✓</div>
+    </div>
+    <div class="loading-step" id="lstep-2">
+      <div class="step-dot"></div>
+      <div class="step-text">构建图数据结构…</div>
+      <div class="step-check" style="display:none">✓</div>
+    </div>
+    <div class="loading-step" id="lstep-3">
+      <div class="step-dot"></div>
+      <div class="step-text">映射节点与边样式…</div>
+      <div class="step-check" style="display:none">✓</div>
+    </div>
+    <div class="loading-step" id="lstep-4">
+      <div class="step-dot"></div>
+      <div class="step-text">渲染拓扑可视化图…</div>
+      <div class="step-check" style="display:none">✓</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!--  MAIN APP                                           -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div id="app">
+  <div class="app-header">
+    <div class="header-logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 18 18" fill="none">
+          <circle cx="9" cy="4" r="2" fill="white" opacity="0.9"/>
+          <circle cx="4" cy="13" r="2" fill="white" opacity="0.9"/>
+          <circle cx="14" cy="13" r="2" fill="white" opacity="0.9"/>
+          <line x1="9" y1="6" x2="4" y2="11" stroke="white" stroke-width="1.2" opacity="0.6"/>
+          <line x1="9" y1="6" x2="14" y2="11" stroke="white" stroke-width="1.2" opacity="0.6"/>
+          <line x1="6" y1="13" x2="12" y2="13" stroke="white" stroke-width="1.2" opacity="0.6"/>
+        </svg>
+      </div>
+      Net<span class="logo-dot">Flow</span>
+    </div>
+    <div class="header-sep"></div>
+    <div class="header-file-info">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:12px;height:12px">
+        <path d="M9 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6L9 2z"/>
+        <polyline points="9,2 9,6 13,6"/>
+      </svg>
+      <strong id="header-filename">—</strong>
+    </div>
+
+    <div class="header-stats">
+      <div class="hstat">
+        <div class="hstat-dot" style="background:#6366f1"></div>
+        <span>节点</span>
+        <span class="hstat-val" id="stat-nodes">—</span>
+      </div>
+      <div class="hstat">
+        <div class="hstat-dot" style="background:#0ea5e9"></div>
+        <span>边</span>
+        <span class="hstat-val" id="stat-edges">—</span>
+      </div>
+      <div class="hstat">
+        <div class="hstat-dot" style="background:#22c55e"></div>
+        <span>总流量</span>
+        <span class="hstat-val" id="stat-traffic">—</span>
+      </div>
+      <div class="hstat">
+        <div class="hstat-dot" style="background:#f59e0b"></div>
+        <span>会话</span>
+        <span class="hstat-val" id="stat-sessions">—</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button class="hbtn new-file-btn" id="new-file-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        更换文件
+      </button>
+    </div>
+  </div>
+
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="sidebar-section-title">视图控制</div>
+      <button class="sidebar-btn active" id="btn-topo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><circle cx="4" cy="19" r="3"/><circle cx="20" cy="19" r="3"/><line x1="12" y1="8" x2="4" y2="16"/><line x1="12" y1="8" x2="20" y2="16"/><line x1="7" y1="19" x2="17" y2="19"/></svg>
+        网络拓扑图
+      </button>
+
+      <div class="sidebar-section-title">分析功能</div>
+      <button class="sidebar-btn" id="btn-overview" data-panel="overview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        整体统计分析
+      </button>
+      <button class="sidebar-btn" id="btn-protocol" data-panel="protocol">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        协议分布
+      </button>
+      <button class="sidebar-btn" id="btn-top" data-panel="top">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        Top 流量节点
+        <span class="sbadge">20</span>
+      </button>
+      <button class="sidebar-btn" id="btn-star" data-panel="star">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        星型拓扑识别
+      </button>
+
+      <div class="sidebar-section-title">异常检测</div>
+      <button class="sidebar-btn" id="btn-anomaly-traffic" data-panel="anomaly-traffic">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        异常大流量检测
+      </button>
+      <button class="sidebar-btn" id="btn-anomaly-behavior" data-panel="anomaly-behavior">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        高频连接行为
+      </button>
+
+      <div class="sidebar-section-title">路径工具</div>
+      <button class="sidebar-btn" id="btn-path" data-panel="path">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="5" r="3"/><circle cx="19" cy="19" r="3"/><line x1="8" y1="12" x2="16" y2="7.5"/><line x1="8" y1="12" x2="16" y2="16.5"/></svg>
+        通信路径查找
+      </button>
+
+      <div class="sidebar-divider" style="margin-top: auto;"></div>
+    </div>
+
+    <div class="chart-wrap">
+      <div id="main-chart"></div>
+      <div class="chart-legend">
+        <div class="legend-title">节点类型</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#6366f1"></div>
+          核心服务器（入度 &gt; 5）
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#f59e0b"></div>
+          疑似扫描源（出度 &gt; 10）
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#38bdf8"></div>
+          普通节点
+        </div>
+      </div>
+    </div>
+
+    <div class="analysis-panel" id="analysis-panel">
+      <div class="panel-header">
+        <div class="panel-title" id="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          分析结果
+        </div>
+        <button class="panel-close" id="panel-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="panel-body" id="panel-body">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <div>从左侧选择一个分析功能<br>结果将显示在这里</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ═════════════════════════════════════════════════════
+//  GLOBAL STATE
+// ═════════════════════════════════════════════════════
+// graphData is loaded from graph.json (generated by C backend).
+// Structure: { summary, top_traffic, star_centers, scan_sources,
+//              anomaly_traffic, anomaly_behavior_threshold, anomaly_behavior,
+//              nodes, links }
+let graphData = null;
+let echartsInst = null;
+let currentPanel = null;
+
+// ═════════════════════════════════════════════════════
+//  SPLASH ANIMATION
+// ═════════════════════════════════════════════════════
+(function runSplash() {
+  const bar = document.getElementById('splash-bar');
+  const label = document.getElementById('splash-label');
+  const msgs = ['INITIALIZING...', 'LOADING MODULES...', 'PREPARING WORKSPACE...', 'READY'];
+  let pct = 0;
+  const iv = setInterval(() => {
+    pct += Math.random() * 18 + 5;
+    if (pct > 100) pct = 100;
+    bar.style.width = pct + '%';
+    const mi = Math.floor((pct / 100) * (msgs.length - 1));
+    label.textContent = msgs[mi];
+    if (pct >= 100) {
+      clearInterval(iv);
+      setTimeout(() => {
+        document.getElementById('splash').classList.add('fade-out');
+        setTimeout(() => {
+          document.getElementById('splash').style.display = 'none';
+          showPicker();
+        }, 800);
+      }, 300);
+    }
+  }, 80);
+})();
+
+function showPicker() {
+  const p = document.getElementById('picker-screen');
+  p.classList.add('visible');
+}
+
+// ═════════════════════════════════════════════════════
+// ─── FILE INPUT HANDLING ─────────────────────────────
+// The C backend generates graph.json with full analysis results.
+// The frontend simply fetches graph.json — no CSV parsing needed.
+// ─────────────────────────────────────────────────────
+
+const fileNameDisplay = document.getElementById('file-name-display');
+const analyzeBtn = document.getElementById('analyze-btn');
+const dropZone = document.getElementById('drop-zone');
+let selectedJsonFile = null; // user-uploaded graph.json, or null = use default
+
+// Support drag-and-drop of a graph.json file produced by the C backend
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.endsWith('.json')) {
+    selectedJsonFile = f;
+    fileNameDisplay.textContent = '✓ ' + f.name;
+    analyzeBtn.classList.add('ready');
+  } else {
+    showToast('请拖入由后端生成的 graph.json 文件');
+  }
+});
+
+// Also accept file via the hidden input (reuse file-input element if present)
+const fileInput = document.getElementById('file-input');
+if (fileInput) {
+  fileInput.accept = '.json';
+  fileInput.addEventListener('change', e => {
+    const f = e.target.files[0];
+    if (f) { selectedJsonFile = f; fileNameDisplay.textContent = '✓ ' + f.name; analyzeBtn.classList.add('ready'); }
+  });
+}
+
+// "使用示例数据" button — load the default graph.json already in the same directory
+document.getElementById('demo-btn').addEventListener('click', () => {
+  selectedJsonFile = null; // will fetch 'graph.json' from server
+  fileNameDisplay.textContent = '✓ 后端分析结果 (graph.json)';
+  analyzeBtn.classList.add('ready');
+});
+
+analyzeBtn.addEventListener('click', () => {
+  if (!fileNameDisplay.textContent) return;
+  startAnalysis();
+});
+
+document.getElementById('new-file-btn').addEventListener('click', () => {
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('app').style.pointerEvents = 'none';
+  graphData = null;
+  selectedJsonFile = null;
+  fileNameDisplay.textContent = '';
+  analyzeBtn.classList.remove('ready');
+  closePanel();
+  const picker = document.getElementById('picker-screen');
+  picker.classList.remove('slide-out');
+  picker.classList.add('visible');
+});
+
+// ─── ANALYSIS FLOW ───────────────────────────────────
+// Fetches graph.json (C backend output) and populates graphData.
+// ─────────────────────────────────────────────────────
+function startAnalysis() {
+  const picker = document.getElementById('picker-screen');
+  picker.classList.add('slide-out');
+  setTimeout(() => {
+    picker.classList.remove('visible', 'slide-out');
+    showLoading();
+  }, 500);
+}
+
+function showLoading() {
+  const ls = document.getElementById('loading-screen');
+  ls.classList.add('visible');
+
+  const steps = 5;
+  const minTime = 1200;
+  let stepIdx = 0;
+
+  function activateStep(i) {
+    if (i > 0) {
+      const prev = document.getElementById('lstep-' + (i-1));
+      prev.classList.remove('active');
+      prev.classList.add('done');
+      prev.querySelector('.step-check').style.display = 'block';
+    }
+    const curr = document.getElementById('lstep-' + i);
+    curr.classList.add('active');
+  }
+  activateStep(0);
+
+  const stepIv = setInterval(() => {
+    stepIdx++;
+    if (stepIdx < steps) activateStep(stepIdx);
+    else clearInterval(stepIv);
+  }, minTime / steps);
+
+  // ── Fetch graph.json produced by C backend ──
+  const startTime = Date.now();
+  const loadPromise = selectedJsonFile
+    ? readFileAsJson(selectedJsonFile)
+    : fetch('graph.json').then(r => {
+        if (!r.ok) throw new Error('graph.json not found');
+        return r.json();
+      });
+
+  loadPromise
+    .then(json => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minTime - elapsed);
+      return new Promise(res => setTimeout(() => res(json), remaining));
+    })
+    .then(json => {
+      // Adapt json from C backend into graphData structure
+      graphData = adaptJsonToGraphData(json);
+
+      clearInterval(stepIv);
+      const lastStep = document.getElementById('lstep-' + (steps - 1));
+      lastStep.classList.remove('active');
+      lastStep.classList.add('done');
+      lastStep.querySelector('.step-check').style.display = 'block';
+
+      setTimeout(() => {
+        ls.classList.add('fade-out');
+        setTimeout(() => {
+          ls.classList.remove('visible', 'fade-out');
+          resetLoadingSteps();
+          showApp();
+        }, 500);
+      }, 300);
+    })
+    .catch(err => {
+      clearInterval(stepIv);
+      showToast('加载 graph.json 失败：' + err.message + ' — 请先运行后端程序生成 graph.json');
+      ls.classList.remove('visible');
+      const picker = document.getElementById('picker-screen');
+      picker.classList.add('visible');
+    });
+}
+
+/** Read a File object as parsed JSON */
+function readFileAsJson(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try { resolve(JSON.parse(e.target.result)); }
+      catch(err) { reject(new Error('JSON 解析失败: ' + err.message)); }
+    };
+    reader.onerror = reject;
+    reader.readAsText(file);
+  });
+}
+
+/**
+ * Adapt the raw graph.json (C backend format) to the internal graphData structure.
+ * C backend fields: summary, top_traffic, star_centers, scan_sources,
+ *                   anomaly_traffic, anomaly_behavior_threshold, anomaly_behavior,
+ *                   nodes (with tx/rx/in_degree/out_degree), links (with src_ip/dst_ip)
+ */
+function adaptJsonToGraphData(json) {
+  // Build ECharts-ready nodes from json.nodes
+  const eNodes = json.nodes.map(n => {
+    let color = '#38bdf8', shadowColor = 'rgba(56,189,248,0.3)';
+    if (n.in_degree > 5)   { color = '#6366f1'; shadowColor = 'rgba(99,102,241,0.4)'; }
+    else if (n.out_degree > 10) { color = '#f59e0b'; shadowColor = 'rgba(245,158,11,0.4)'; }
+    return {
+      id: n.id,
+      name: n.name,
+      value: n.value,
+      tx: n.tx || 0,
+      rx: n.rx || 0,
+      in_degree: n.in_degree,
+      out_degree: n.out_degree,
+      symbolSize: Math.min(Math.max(10, Math.log10(n.value + 1) * 5), 55),
+      itemStyle: { color, shadowBlur: 12, shadowColor, borderColor: '#fff', borderWidth: 1.5 }
+    };
+  });
+
+  // Build ECharts-ready links from json.links
+  const eLinks = json.links.map(l => ({
+    source: l.source,
+    target: l.target,
+    traffic: l.traffic,
+    sessions: l.sessions,
+    srcIp: l.src_ip,
+    dstIp: l.dst_ip,
+    lineStyle: {
+      width: Math.max(0.5, Math.log10(l.traffic + 1) * 0.5),
+      curveness: 0.12
+    }
+  }));
+
+  return {
+    // ECharts rendering data
+    nodes: eNodes,
+    links: eLinks,
+    // Pre-computed analysis results from C backend (directly usable)
+    summary: json.summary,
+    top_traffic: json.top_traffic || [],
+    star_centers: json.star_centers || [],
+    scan_sources: json.scan_sources || [],
+    anomaly_traffic: json.anomaly_traffic || [],
+    anomaly_behavior_threshold: json.anomaly_behavior_threshold || 3,
+    anomaly_behavior: json.anomaly_behavior || [],
+    // Raw node list for BFS path finding
+    rawNodes: json.nodes,
+    rawLinks: json.links,
+  };
+}
+
+function resetLoadingSteps() {
+  for (let i = 0; i < 5; i++) {
+    const el = document.getElementById('lstep-' + i);
+    el.classList.remove('active', 'done');
+    el.querySelector('.step-check').style.display = 'none';
+  }
+}
+
+function showApp() {
+  const app = document.getElementById('app');
+  app.classList.add('visible');
+  app.style.pointerEvents = 'all';
+  updateHeaderStats();
+  renderChart();
+}
+
+// ─── CHART RENDERING ─────────────────────────────────
+// ═════════════════════════════════════════════════════
+function renderChart() {
+  if (!echartsInst) {
+    echartsInst = echarts.init(document.getElementById('main-chart'));
+  }
+
+  const option = {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(255,255,255,0.97)',
+      borderColor: '#d1ddf7',
+      borderWidth: 1,
+      padding: [12, 16],
+      textStyle: { color: '#0f1d3d', fontSize: 12, fontFamily: 'DM Sans' },
+      extraCssText: 'box-shadow: 0 10px 30px rgba(37,99,235,0.12); border-radius: 12px;',
+      formatter(params) {
+        if (params.dataType === 'node') {
+          const d = params.data;
+          return `
+            <div style="font-family:DM Sans,sans-serif">
+              <div style="border-bottom:1px solid #e8eeff;padding-bottom:8px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+                <span style="width:10px;height:10px;border-radius:50%;background:${params.color};display:inline-block"></span>
+                <b style="font-family:DM Mono,monospace;font-size:13px;color:#0f1d3d">${d.name}</b>
+              </div>
+              <div style="line-height:1.7;font-size:12px">
+                <span style="color:#4b6393">总流量:</span> <span style="float:right;font-family:DM Mono,monospace;font-weight:600">${fmtBytes(d.value)}</span><br>
+                <span style="color:#4b6393">出度 (主动连接):</span> <span style="float:right;font-family:DM Mono,monospace;font-weight:600">${d.out_degree}</span><br>
+                <span style="color:#4b6393">入度 (被访问):</span> <span style="float:right;font-family:DM Mono,monospace;font-weight:600">${d.in_degree}</span>
+              </div>
+            </div>`;
+        } else if (params.dataType === 'edge') {
+          const d = params.data;
+          return `
+            <div style="font-family:DM Sans,sans-serif">
+              <div style="font-size:11px;color:#94aac8;margin-bottom:6px;font-family:DM Mono,monospace">${d.srcIp} → ${d.dstIp}</div>
+              <div style="line-height:1.7;font-size:12px">
+                <span style="color:#4b6393">传输流量:</span> <b style="font-family:DM Mono,monospace">${fmtBytes(d.traffic)}</b><br>
+                <span style="color:#4b6393">聚合会话:</span> <b style="font-family:DM Mono,monospace">${d.sessions} 次</b>
+              </div>
+            </div>`;
+        }
+      }
+    },
+    series: [{
+      type: 'graph',
+      layout: 'force',
+      data: graphData.nodes,
+      links: graphData.links,
+      roam: true,
+      label: {
+        show: true, position: 'right',
+        formatter: '{b}',
+        color: '#64748b', fontSize: 10,
+        fontFamily: 'DM Mono'
+      },
+      force: {
+        repulsion: 280, edgeLength: 100, gravity: 0.1,
+        layoutAnimation: true
+      },
+      lineStyle: { color: '#c7d5f0', opacity: 0.35 },
+      emphasis: {
+        focus: 'adjacency',
+        lineStyle: { width: 3, color: '#60a5fa', opacity: 0.9 },
+        label: { fontSize: 12, fontWeight: 600, color: '#1a3fa8' }
+      },
+      scaleLimit: { min: 0.3, max: 5 }
+    }]
+  };
+
+  // notMerge: true → completely replace option; replaceMerge prevents any future
+  // panel renderPanel() calls from accidentally touching this instance because
+  // we never call setOption on echartsInst again after this point.
+  echartsInst.setOption(option, { notMerge: true, lazyUpdate: false });
+
+  window.addEventListener('resize', () => echartsInst && echartsInst.resize());
+}
+
+function updateHeaderStats() {
+  if (!graphData) return;
+  const s = graphData.summary;
+  document.getElementById('header-filename').textContent = 'graph.json (C backend output)';
+  document.getElementById('stat-nodes').textContent = s.num_nodes;
+  document.getElementById('stat-edges').textContent = s.num_edges;
+  document.getElementById('stat-traffic').textContent = fmtBytes(s.total_bytes);
+  document.getElementById('stat-sessions').textContent = s.total_sessions.toLocaleString();
+}
+
+// ═════════════════════════════════════════════════════
+//  SIDEBAR BUTTON LOGIC
+// ═════════════════════════════════════════════════════
+document.getElementById('btn-topo').addEventListener('click', function() {
+  setSidebarActive(this);
+  closePanel();
+});
+
+const panelBtns = document.querySelectorAll('.sidebar-btn[data-panel]');
+panelBtns.forEach(btn => {
+  btn.addEventListener('click', function() {
+    const panel = this.dataset.panel;
+    setSidebarActive(this);
+    openPanel(panel);
+  });
+});
+
+function setSidebarActive(btn) {
+  document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+document.getElementById('panel-close').addEventListener('click', () => {
+  closePanel();
+  document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-topo').classList.add('active');
+});
+
+function openPanel(panelId) {
+  currentPanel = panelId;
+  document.getElementById('analysis-panel').classList.add('open');
+  renderPanel(panelId);
+}
+
+function closePanel() {
+  currentPanel = null;
+  document.getElementById('analysis-panel').classList.remove('open');
+}
+
+// ═════════════════════════════════════════════════════
+//  PANEL RENDERING
+// ═════════════════════════════════════════════════════
+const panelTitles = {
+  overview: '整体统计分析',
+  protocol: '协议流量分布',
+  top: 'Top 20 流量节点',
+  star: '星型拓扑识别',
+  'anomaly-traffic': '异常大流量检测',
+  'anomaly-behavior': '高频连接行为',
+  path: '通信路径查找'
+};
+const panelIcons = {
+  overview: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+  protocol: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>',
+  top: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>',
+  star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+  'anomaly-traffic': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>',
+  'anomaly-behavior': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+  path: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="5" r="3"/><circle cx="19" cy="19" r="3"/><line x1="8" y1="12" x2="16" y2="7.5"/><line x1="8" y1="12" x2="16" y2="16.5"/></svg>'
+};
+
+function renderPanel(id) {
+  document.getElementById('panel-title').innerHTML = (panelIcons[id] || '') + panelTitles[id];
+  const body = document.getElementById('panel-body');
+  body.innerHTML = '';
+
+  if (!graphData) return;
+
+  if (id === 'overview') renderOverview(body);
+  else if (id === 'protocol') renderProtocol(body);
+  else if (id === 'top') renderTop(body);
+  else if (id === 'star') renderStar(body);
+  else if (id === 'anomaly-traffic') renderAnomalyTraffic(body);
+  else if (id === 'anomaly-behavior') renderAnomalyBehavior(body);
+  else if (id === 'path') renderPath(body);
+}
+
+function renderOverview(body) {
+  const s = graphData.summary;
+  const avgEdgeTraffic = s.num_edges > 0 ? s.total_bytes / s.num_edges : 0;
+  const avgEdgeSessions = s.num_edges > 0 ? s.total_sessions / s.num_edges : 0;
+  const card = mkCard('网络概览', [
+    ['独立 IP 节点数', s.num_nodes],
+    ['独特通信边数', s.num_edges],
+    ['总会话次数', s.total_sessions.toLocaleString()],
+    ['总传输流量', fmtBytes(s.total_bytes)],
+    ['平均每条边流量', fmtBytes(avgEdgeTraffic)],
+    ['平均每条边会话', avgEdgeSessions.toFixed(1)],
+  ]);
+  body.appendChild(card);
+
+  // Top 3 senders from backend's pre-sorted top_traffic list
+  const top3 = (graphData.top_traffic || []).slice(0, 3);
+  const card2 = mkCard('流量最大节点 Top 3', top3.map(n => [n.ip, fmtBytes(n.total)]));
+  body.appendChild(card2);
+}
+
+function renderProtocol(body) {
+  const s = graphData.summary;
+  const total = s.tcp_bytes + s.udp_bytes + s.icmp_bytes + s.other_bytes || 1;
+  const protos = [
+    { name: 'TCP (Proto 6)',  bytes: s.tcp_bytes,   color: '#2563eb' },
+    { name: 'UDP (Proto 17)', bytes: s.udp_bytes,   color: '#0ea5e9' },
+    { name: 'ICMP (Proto 1)', bytes: s.icmp_bytes,  color: '#22c55e' },
+    { name: '其他',           bytes: s.other_bytes, color: '#94a3b8' },
+  ];
+
+  const div = document.createElement('div');
+  div.className = 'result-card';
+  div.innerHTML = `<div class="result-card-title">${panelIcons.protocol} 按流量统计（C 后端计算）</div>`;
+  protos.forEach(p => {
+    const pct = ((p.bytes / total) * 100).toFixed(1);
+    div.innerHTML += `
+      <div class="protocol-bar-row">
+        <div class="proto-label-row"><span>${p.name}</span><span>${fmtBytes(p.bytes)} (${pct}%)</span></div>
+        <div class="proto-bar-track"><div class="proto-bar-fill" style="width:${pct}%;background:${p.color}"></div></div>
+      </div>`;
+  });
+  body.appendChild(div);
+}
+
+function renderTop(body) {
+  const top = graphData.top_traffic || [];
+  const maxVal = top.length ? top[0].total : 1;
+
+  const div = document.createElement('div');
+  div.className = 'result-card';
+  div.innerHTML = `<div class="result-card-title">Top ${top.length} 节点（C 后端排序）</div>`;
+  top.forEach((n, i) => {
+    const pct = ((n.total / maxVal) * 100).toFixed(0);
+    const rank = i < 3 ? ['gold','silver','bronze'][i] : '';
+    div.innerHTML += `
+      <div class="rank-row">
+        <div class="rank-num ${rank}">${i+1}</div>
+        <div class="rank-ip">${n.ip}</div>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:${pct}%"></div></div>
+        <div class="rank-val">${fmtBytes(n.total)}</div>
+      </div>`;
+  });
+  body.appendChild(div);
+}
+
+function renderStar(body) {
+  const centers = graphData.star_centers || [];
+  const div = document.createElement('div');
+  div.className = 'result-card';
+  div.innerHTML = `<div class="result-card-title" style="color:#6366f1">核心服务器（C 后端：入度 &gt; 5）</div>`;
+  if (!centers.length) {
+    div.innerHTML += `<div style="font-size:12px;color:var(--text-muted);padding:8px 0">未检测到明显的星型拓扑中心节点</div>`;
+  } else {
+    centers.forEach(n => {
+      div.innerHTML += `
+        <div class="rank-row">
+          <div class="rank-num" style="background:#ede9fe;color:#6366f1">◎</div>
+          <div class="rank-ip">${n.ip}</div>
+          <div style="font-size:11px;color:var(--text-muted);font-family:DM Mono,monospace;margin-left:auto">入度: ${n.in_degree}</div>
+        </div>`;
+    });
+  }
+  body.appendChild(div);
+
+  // Scan sources
+  const scanners = graphData.scan_sources || [];
+  const div2 = document.createElement('div');
+  div2.className = 'result-card';
+  div2.style.animationDelay = '0.1s';
+  div2.innerHTML = `<div class="result-card-title" style="color:#f59e0b">疑似扫描源（C 后端：出度 &gt; 10）</div>`;
+  if (!scanners.length) {
+    div2.innerHTML += `<div style="font-size:12px;color:var(--text-muted);padding:8px 0">未检测到明显的高出度扫描节点</div>`;
+  } else {
+    scanners.forEach(n => {
+      div2.innerHTML += `
+        <div class="rank-row">
+          <div class="rank-num" style="background:#fef3c7;color:#f59e0b">!</div>
+          <div class="rank-ip">${n.ip}</div>
+          <div style="font-size:11px;color:var(--text-muted);font-family:DM Mono,monospace;margin-left:auto">出度: ${n.out_degree}</div>
+        </div>`;
+    });
+  }
+  body.appendChild(div2);
+}
+
+function renderAnomalyTraffic(body) {
+  const anomalies = graphData.anomaly_traffic || [];
+
+  const div = document.createElement('div');
+  div.className = 'result-card';
+  div.innerHTML = `
+    <div class="result-card-title" style="color:#dc2626">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+      C 后端检测到 ${anomalies.length} 个异常节点（总流量 Top 5%）
+    </div>`;
+  if (!anomalies.length) {
+    div.innerHTML += `<div style="font-size:12px;color:var(--text-muted);padding:8px 0">无异常大流量节点</div>`;
+  } else {
+    anomalies.forEach((n, i) => {
+      const level = i < 3 ? 'danger' : 'warn';
+      div.innerHTML += `
+        <div class="anomaly-row">
+          <div class="anomaly-badge ${level}">${level === 'danger' ? '高危' : '警告'}</div>
+          <div>
+            <div class="anomaly-ip">${n.ip}</div>
+            <div class="anomaly-detail">总流量: ${fmtBytes(n.total)} · 发: ${fmtBytes(n.tx)} · 收: ${fmtBytes(n.rx)}</div>
+          </div>
+        </div>`;
+    });
+  }
+  body.appendChild(div);
+}
+
+function renderAnomalyBehavior(body) {
+  const anomalies = graphData.anomaly_behavior || [];
+  const thresh = graphData.anomaly_behavior_threshold || 3;
+
+  const div = document.createElement('div');
+  div.className = 'result-card';
+  div.innerHTML = `
+    <div class="result-card-title" style="color:#d97706">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      C 后端高频连接行为（出度 &gt; ${thresh}）：${anomalies.length} 个
+    </div>`;
+
+  if (!anomalies.length) {
+    div.innerHTML += `<div style="font-size:12px;color:var(--text-muted);padding:8px 0">未检测到高频连接节点</div>`;
+  } else {
+    anomalies.forEach((n, i) => {
+      const level = n.out_degree > thresh * 2 ? 'danger' : 'warn';
+      div.innerHTML += `
+        <div class="anomaly-row">
+          <div class="anomaly-badge ${level}">${level === 'danger' ? '疑似扫描' : '高频'}</div>
+          <div>
+            <div class="anomaly-ip">${n.ip}</div>
+            <div class="anomaly-detail">主动连接 ${n.out_degree} 个不同目标 · 接受 ${n.in_degree} 个来源</div>
+          </div>
+        </div>`;
+    });
+  }
+  body.appendChild(div);
+}
+
+function renderPath(body) {
+  const div = document.createElement('div');
+  div.className = 'result-card';
+  div.innerHTML = `
+    <div class="result-card-title">BFS 最短路径查找（前端计算，基于后端图数据）</div>
+    <div class="path-input-wrap">
+      <div class="path-input-label">SOURCE IP</div>
+      <input class="path-input" id="path-src" placeholder="e.g. 192.168.1.1" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="path-input-wrap">
+      <div class="path-input-label">DESTINATION IP</div>
+      <input class="path-input" id="path-dst" placeholder="e.g. 10.0.0.1" autocomplete="off" spellcheck="false">
+    </div>
+    <button class="path-btn" id="path-find-btn">查找通信路径</button>
+    <div id="path-result-area"></div>`;
+  body.appendChild(div);
+
+  // Hint: use IPs from the loaded graph
+  const ips = (graphData.rawNodes || []).map(n => n.name || n.ip_address);
+  if (ips.length >= 2) {
+    document.getElementById('path-src').placeholder = ips[0];
+    document.getElementById('path-dst').placeholder = ips[Math.min(5, ips.length-1)];
+  }
+
+  document.getElementById('path-find-btn').addEventListener('click', () => {
+    const src = document.getElementById('path-src').value.trim() || document.getElementById('path-src').placeholder;
+    const dst = document.getElementById('path-dst').value.trim() || document.getElementById('path-dst').placeholder;
+    const result = findPath(src, dst);
+    const area = document.getElementById('path-result-area');
+    if (result.found) {
+      area.innerHTML = `
+        <div class="path-result">
+          <div class="path-result-label">✓ 找到路径（${result.path.length} 跳）</div>
+          <div class="path-chain">${result.path.map((ip,i) => `<span>${ip}</span>${i < result.path.length-1 ? '<span class="path-arrow">→</span>' : ''}`).join('')}</div>
+        </div>`;
+    } else {
+      area.innerHTML = `
+        <div class="path-result error">
+          <div class="path-result-label">✗ ${result.msg}</div>
+        </div>`;
+    }
+  });
+}
+
+function findPath(srcIp, dstIp) {
+  // Use rawNodes (C backend node objects with .name field)
+  const nodeList = graphData.rawNodes || [];
+  const idMap = {};
+  nodeList.forEach(n => idMap[n.name || n.ip_address] = n.id);
+
+  if (!(srcIp in idMap)) return { found: false, msg: `源 IP "${srcIp}" 不存在于网络中` };
+  if (!(dstIp in idMap)) return { found: false, msg: `目的 IP "${dstIp}" 不存在于网络中` };
+
+  const srcId = String(idMap[srcIp]);
+  const dstId = String(idMap[dstIp]);
+
+  // Build adjacency list from rawLinks
+  const adj = {};
+  nodeList.forEach(n => adj[String(n.id)] = []);
+  (graphData.rawLinks || []).forEach(l => {
+    if (!adj[String(l.source)]) adj[String(l.source)] = [];
+    adj[String(l.source)].push(String(l.target));
+  });
+
+  // BFS
+  const visited = new Set();
+  const parent = {};
+  const queue = [srcId];
+  visited.add(srcId);
+  parent[srcId] = null;
+  let found = false;
+
+  while (queue.length) {
+    const curr = queue.shift();
+    if (curr === dstId) { found = true; break; }
+    for (const nb of (adj[curr] || [])) {
+      if (!visited.has(nb)) {
+        visited.add(nb);
+        parent[nb] = curr;
+        queue.push(nb);
+      }
+    }
+  }
+
+  if (!found) return { found: false, msg: `${srcIp} 和 ${dstIp} 之间不存在通信路径` };
+
+  // Reconstruct path
+  const idToIp = {};
+  nodeList.forEach(n => idToIp[String(n.id)] = n.name || n.ip_address);
+  const path = [];
+  let curr = dstId;
+  while (curr !== null && curr !== undefined) {
+    path.push(idToIp[curr]);
+    curr = parent[curr];
+  }
+  path.reverse();
+  return { found: true, path };
+}
+
+// ═════════════════════════════════════════════════════
+//  UTILITIES
+// ═════════════════════════════════════════════════════
+function fmtBytes(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[Math.min(i, sizes.length-1)];
+}
+
+function mkCard(title, rows) {
+  const div = document.createElement('div');
+  div.className = 'result-card';
+  div.innerHTML = `<div class="result-card-title">${title}</div>`;
+  rows.forEach(([label, value]) => {
+    div.innerHTML += `<div class="stat-row"><span class="label">${label}</span><span class="value">${value}</span></div>`;
+  });
+  return div;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
